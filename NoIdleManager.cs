@@ -1,28 +1,25 @@
 ﻿using NLog;
-using System;
-using System.Diagnostics;
-using System.Reflection;
 using System.Threading.Tasks;
 using Torch.API;
 using Torch.API.Managers;
 using Torch.API.Session;
 using Torch.Managers;
 using Torch.Managers.PatchManager;
-using Torch.Server;
-using Torch.Server.Managers;
 using Torch.Session;
 
-namespace ALE_BanNotifier {
-    class BanManager : Manager {
+namespace ALE_NoIdle {
+    class NoIdleManager : Manager {
 
         [Dependency]
         private TorchSessionManager sessionManager;
 
-        private IMultiplayerManagerServer multiplayerManager;
+        [Dependency]
+        private readonly PatchManager patchManager;
+        private PatchContext ctx;
 
         public static readonly Logger Log = LogManager.GetCurrentClassLogger();
 
-        public BanManager(ITorchBase torchInstance)
+        public NoIdleManager(ITorchBase torchInstance)
             : base(torchInstance) {
         }
 
@@ -35,46 +32,30 @@ namespace ALE_BanNotifier {
                 sessionManager.SessionStateChanged += SessionChanged;
             else
                 Log.Warn("No session manager loaded!");
+
+            if (ctx == null)
+                ctx = patchManager.AcquireContext();
         }
 
         /// <inheritdoc />
         public override void Detach() {
             base.Detach();
 
+            patchManager.FreeContext(ctx);
+
             Log.Info("Detached!");
         }
 
         private void SessionChanged(ITorchSession session, TorchSessionState state) {
-
             switch (state) {
-
                 case TorchSessionState.Loaded:
-
-                    Log.Info("Registering Ban Listner!");
-
-                    multiplayerManager = Torch.CurrentSession.Managers.GetManager<IMultiplayerManagerServer>();
-                    if (multiplayerManager != null)
-                        multiplayerManager.PlayerBanned += PlayerBanned;
-                    else
-                        Log.Warn("No session manager loaded!");
-
-                    break;
-
-                case TorchSessionState.Unloading:
-
-                    Log.Info("Unregistering Ban Listner!");
-
-                    if (multiplayerManager != null)
-                        multiplayerManager.PlayerBanned -= PlayerBanned;
-
+                    Task.Delay(3000).ContinueWith((t) => {
+                        Log.Debug("Patching MyLargeTurretBasePatch");
+                        ctx.GetPattern(MyLargeTurretBasePatch.update).Prefixes.Add(MyLargeTurretBasePatch.idleMover);
+                        patchManager.Commit();
+                    });
                     break;
             }
-        }
-
-        private void PlayerBanned(ulong steamId, bool isBanned) {
-
-            Log.Error("Player with ID " + steamId + " isBanned " + isBanned);
-
         }
     }
 }
