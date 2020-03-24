@@ -22,15 +22,9 @@ namespace ALE_NoIdle {
 
         public static void Patch(PatchContext ctx) {
 
-            try {
+            ctx.GetPattern(UpdateMethod).Prefixes.Add(IdleMoverPatch);
 
-                ctx.GetPattern(UpdateMethod).Prefixes.Add(IdleMoverPatch);
-
-                Log.Info("Patching Successful MyLargeTurretBase!");
-
-            } catch (Exception e) {
-                Log.Error(e, "Patching failed!");
-            }
+            Log.Debug("Patching Successful MyLargeTurretBase!");
         }
 
         public static bool IdleMover(MyLargeTurretBase __instance) {
